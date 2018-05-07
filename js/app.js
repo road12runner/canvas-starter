@@ -1,4 +1,4 @@
-console.log('hello');
+
 
 var Desktop = {Top: 0, Left: 0, Bottom: 153, Right: 241};
 
@@ -9,7 +9,7 @@ var template = {
 
 var canvas = document.getElementById('ssg-canvas');
 var ctx = canvas.getContext('2d');
-console.log(ctx.canvas.width, ctx.canvas.height);
+
 
 var middlePoint = {
 	x: ctx.canvas.width / 2 ,
@@ -38,6 +38,8 @@ var card = {
 	rotation: 0,
 	height: template.height + 40,
 	width: template.width + 40,
+	origHeight: template.height + 40,
+	origWidth: template.width + 40,
 	hoverCorners: {
 		leftTop: false,
 		rightTop: false,
@@ -94,7 +96,7 @@ var card = {
 			var radians = this.rotation * Math.PI / 180;
 			var rotatePoint= {
 				x: (pointOffset.x) * Math.cos(radians) -  (pointOffset.y) * Math.sin(radians),
-				y: (pointOffset.x ) * Math.sin(radians) +  (pointOffset.y) * Math.cos(radians),
+				y: (pointOffset.x ) * Math.sin(radians) +  (pointOffset.y) * Math.cos(radians)
 				
 			};
 			
@@ -120,7 +122,7 @@ var card = {
 			var radians = this.rotation * Math.PI / 180;
 			var rotatePoint= {
 				x: (pointOffset.x) * Math.cos(radians) -  (pointOffset.y) * Math.sin(radians),
-				y: (pointOffset.x ) * Math.sin(radians) +  (pointOffset.y) * Math.cos(radians),
+				y: (pointOffset.x ) * Math.sin(radians) +  (pointOffset.y) * Math.cos(radians)
 				
 			};
 			
@@ -146,7 +148,7 @@ var card = {
 			var radians = this.rotation * Math.PI / 180;
 			var rotatePoint= {
 				x: (pointOffset.x) * Math.cos(radians) -  (pointOffset.y) * Math.sin(radians),
-				y: (pointOffset.x ) * Math.sin(radians) +  (pointOffset.y) * Math.cos(radians),
+				y: (pointOffset.x ) * Math.sin(radians) +  (pointOffset.y) * Math.cos(radians)
 				
 			};
 			
@@ -173,7 +175,7 @@ var card = {
 			var radians = this.rotation * Math.PI / 180;
 			var rotatePoint= {
 				x: (pointOffset.x) * Math.cos(radians) -  (pointOffset.y) * Math.sin(radians),
-				y: (pointOffset.x ) * Math.sin(radians) +  (pointOffset.y) * Math.cos(radians),
+				y: (pointOffset.x ) * Math.sin(radians) +  (pointOffset.y) * Math.cos(radians)
 				
 			};
 			
@@ -209,14 +211,14 @@ var card = {
 			// draw left top corner
 			
 			ctx.beginPath();
-			ctx.arc( - this.width / 2,- this.height / 2, 5, 0 , 2*Math.PI);
+			ctx.arc( - this.width / 2,- this.height / 2, 5, 0 , 2 * Math.PI);
 			ctx.fillStyle = this.hoverCorners.leftTop ? this.borderColor : 'white';
 			ctx.fill();
 			ctx.stroke();
 			
 			// draw right top corner
 			ctx.beginPath();
-			ctx.arc(  this.width / 2,- this.height / 2, 5, 0 , 2*Math.PI);
+			ctx.arc(  this.width / 2,- this.height / 2, 5, 0 , 2 * Math.PI);
 			ctx.fillStyle = this.hoverCorners.rightTop? this.borderColor : 'white';
 			ctx.fill();
 			ctx.stroke();
@@ -225,14 +227,14 @@ var card = {
 			//draw left bottom corner
 			ctx.beginPath();
 			ctx.fillStyle = this.hoverCorners.leftBottom? this.borderColor : 'white';
-			ctx.arc(  -this.width / 2, this.height / 2, 5, 0 , 2*Math.PI);
+			ctx.arc(  -this.width / 2, this.height / 2, 5, 0 , 2 * Math.PI);
 			ctx.fill();
 			ctx.stroke();
 			
 			
 			//draw right bottom corner
 			ctx.beginPath();
-			ctx.arc(  this.width / 2, this.height / 2, 5, 0 , 2*Math.PI);
+			ctx.arc(  this.width / 2, this.height / 2, 5, 0 , 2 * Math.PI);
 			ctx.fillStyle = this.hoverCorners.rightBottom? this.borderColor : 'white';
 			ctx.fill();
 			ctx.stroke();
@@ -310,14 +312,25 @@ var card = {
 			this.hoverCorners.rotatePoint = isInside(pos, this.getRotationPoint());
 		}else if (this.action === ACTIONS.SCALING) {
 
-			var deltaX =  pos.x - this.mousePos.x;
-			var deltaY = pos.y - this.mousePos.y;
-			
-			card.x += deltaX;
-			card.y += deltaY;
-			card.width -= deltaX *2;
-			card.height -= deltaY *2;
-			
+			var centerPoint = this.getOriginPoint();
+			var dx1 = Math.abs(centerPoint.x - this.mousePos.x);
+			var dy1 = Math.abs(centerPoint.y - this.mousePos.y);
+
+			var dx2 = Math.abs(centerPoint.x - pos.x);
+			var dy2 = Math.abs(centerPoint.y - pos.y);
+
+
+
+			var deltaX =  dx1 - dx2;
+			var deltaY = dy1 - dy1;
+
+			card.x +=  deltaX;
+			card.y +=  deltaY;
+
+			var ratio = this.width / this.height;
+			card.width -=  deltaX *2;
+			card.height -= deltaX * 2 / ratio;
+
 			this.mousePos = pos;
 			
 		} else if (this.action === ACTIONS.ROTATION) {
@@ -568,10 +581,10 @@ function drawCard() {
 	//console.log(afterRotate);
 	
 	
-	if (checkOverlap(template, card)) {
-		ctx.font = "12px Arial";
-		ctx.fillText("Overlap",10,10);
-	}
+	// if (checkOverlap(template, card)) {
+	// 	ctx.font = "12px Arial";
+	// 	ctx.fillText("Overlap",10,10);
+	// }
 	
 	
 	var cardPolygon = [
@@ -585,14 +598,48 @@ function drawCard() {
 		{x: template.x, y: template.y},
 		{x: template.x + template.width, y: template.y},
 		{x: template.x + template.width, y: template.y + template.height},
-		{x: template.x, y: template.y + template.height},
+		{x: template.x, y: template.y + template.height}
 	];
 	
 	
-	var result = rectCollide(card.rotation, card, template);
-	console.log('intersect', result);
-	
-	
+	//var result = rectCollide(card.rotation, card, template);
+	//console.log('intersect', result);
+	var vertices  = getVertices(card);
+	//console.log('vertices', vertices);
+	vertices  = [
+		card.getLeftBottomCorner(),
+		card.getLeftTopCorner(),
+		card.getRightTopCorner(),
+		card.getRightBottomCorner()
+	];
+	//console.log('vertices', vertices);
+//	console.log('vertices to lines', verticesToLines(vertices));
+
+
+	// var card1 = {
+	// 	x: 174,
+	// 	y: 156,
+	// 	width: 255,
+	// 	height: 191,
+	// 	rotation: 0,
+	// 	origWidth: 255
+	// };
+	//
+	// var template1 = {
+	// 	x: 151,
+	// 	y: 205,
+	// 	width: 402 - 151,
+	// 	height: 368 - 205
+	// };
+//	vertices  = getVertices(card1);
+// 	console.log('noverlap', !noOverlap(vertices, template));
+// 	console.log('allinside', !allInside(vertices, template));
+// 	console.log('insersect', !linesIntersect(vertices, template));
+	// if (!noOverlap(vertices, template)) {
+	// 	ctx.font = "12px Arial";
+	// 	ctx.fillText("Overlap",10,10);
+	// }
+
 	//y' = y*cos(a) + x*sin(a), x' = - y*sin(a) + x*cos(a)
 	
 	// rotatePoint= {
@@ -930,6 +977,208 @@ function rectCollide(angle, rP, rQ) {
 			 ? false : true;
 	}
 }
+
+
+// returns an array of the coordinates of the corners of a block level element
+function getVertices( obj) {
+
+	var scale = obj.width / obj.origWidth;
+	
+	if (obj.rotation === 0 && scale === 1)
+		return [
+			{x:obj.x, y:obj.y + obj.height},
+			{x:obj.x + obj.width , y:obj.y},
+			{x:obj.x, y:obj.y},
+			{x:obj.x + obj.width, y:obj.y + obj.height}
+		];
+
+	var hWidth = obj.width * scale / 2;
+	var hHeight = obj.height * scale / 2;
+
+	//this offset corrects a small difference in card coverage caused by the bleed region
+	// no longer seems to be necessary. leaving it as 1 to make the ui a bit more relaxed
+	//var offset = 3; 
+	var offset = 1;
+	var bottomOffset = 1;
+
+	var centre = {
+		x : obj.width / 2  + obj.x,
+		y : obj.height / 2 + obj.y
+	};
+
+	var cosAngle = Math.cos(obj.rotation * Math.PI/180);
+	var sinAngle = Math.sin(obj.rotation * Math.PI/180);
+
+	var pBottomLeft = {
+		x : Math.round((hWidth * cosAngle - hHeight * sinAngle ) + centre.x) + offset,
+		y : Math.round((hWidth * sinAngle + hHeight * cosAngle ) + centre.y) + bottomOffset
+	};
+
+	var pTopLeft = {
+		x : Math.round(-(hWidth * cosAngle - hHeight * sinAngle ) + centre.x) - offset,
+		y : Math.round(-(hWidth * sinAngle + hHeight * cosAngle ) + centre.y) - offset
+	};
+
+	var pTopRight = {
+		x : Math.round(-(hWidth * cosAngle + hHeight * sinAngle ) + centre.x) - offset,
+		y : Math.round(-(hWidth * sinAngle - hHeight * cosAngle ) + centre.y) + bottomOffset
+	};
+
+	var pBottomRight = {
+		x : Math.round((hWidth * cosAngle + hHeight * sinAngle ) + centre.x) + offset,
+		y : Math.round((hWidth * sinAngle - hHeight * cosAngle ) + centre.y) - offset
+	};
+
+	/*$('.helper-dot').remove();
+	makedot(centre.x,centre.y, 'white');
+	makedot(pBottomLeft.x,pBottomLeft.y, 'green');
+	makedot(pTopLeft.x,pTopLeft.y, 'red');
+	makedot(pTopRight.x,pTopRight.y, 'brown');
+	makedot(pBottomRight.x,pBottomRight.y, 'black');*/
+
+	return [pBottomLeft,pTopRight, pTopLeft, pBottomRight];
+}
+
+
+function verticesToLines(vertices) {
+	var lines = [];
+
+	for(var i=0; i < vertices.length; i++) {
+		var next = i + 1;
+		if(next === vertices.length) { next = 0; }
+		lines.push({ p1 : vertices[i], p2 : vertices[next] });
+	}
+
+	return lines;
+}
+
+
+function noOverlap(vertices, coverage) {
+	
+	var box = {
+		top: coverage.y,
+		bottom: coverage.y + coverage.height,
+		left: coverage.x,
+		right: coverage.x + coverage.width
+	};
+	
+	
+	var result = (vertices[0].y < box.top
+		&& vertices[1].y < box.top
+		&& vertices[2].y < box.top
+		&& vertices[3].y < box.top)
+		||
+		(vertices[0].y > box.bottom
+			&& vertices[1].y > box.bottom
+			&& vertices[2].y > box.bottom
+			&& vertices[3].y > box.bottom)
+		||
+		(vertices[0].x < box.left
+			&& vertices[1].x < box.left
+			&& vertices[2].x < box.left
+			&& vertices[3].x < box.left)
+		||
+		(vertices[0].x > box.right
+			&& vertices[1].x > box.right
+			&& vertices[2].x > box.right
+			&& vertices[3].x > box.right);
+
+	return result;
+}
+
+function allInside(vertices, coverage) {
+
+	var box = {
+		top: coverage.y,
+		bottom: coverage.y + coverage.height,
+		left: coverage.x,
+		right: coverage.x + coverage.width
+	};
+	
+	return vertices[0].y > box.top
+		&& vertices[1].y > box.top
+		&& vertices[2].y > box.top
+		&& vertices[3].y > box.top
+		&& vertices[0].x > box.left
+		&& vertices[1].x > box.left
+		&& vertices[2].x > box.left
+		&& vertices[3].x > box.left
+		&& vertices[0].x < box.right
+		&& vertices[1].x < box.right
+		&& vertices[2].x < box.right
+		&& vertices[3].x < box.right
+		&& vertices[0].y < box.bottom
+		&& vertices[1].y < box.bottom
+		&& vertices[2].y < box.bottom
+		&& vertices[3].y < box.bottom;
+}
+
+
+
+function linesIntersect(cardVertices, template) {
+	var imageLines = verticesToLines(cardVertices);
+
+	var box = {
+		top: template.y,
+		bottom: template.y + template.height,
+		left: template.x,
+		right: template.x + template.width
+	};
+
+
+	var templateLines = verticesToLines([
+		{ x: Math.round(box.left), y: Math.round(box.bottom) },
+		{ x: Math.round(box.left), y: Math.round(box.top) },
+		{ x: Math.round(box.right), y: Math.round(box.top) },
+		{ x: Math.round(box.right), y: Math.round(box.bottom) }
+	]);
+
+	for (var i = 0; i < imageLines.length; i++) {
+		for (var j = 0; j < templateLines.length; j++) {
+			if (getIntersection(imageLines[i], templateLines[j]) != null) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+function getIntersection (L1, L2) {
+
+	// calculates the point at which the two infinite lines will cross
+	var Px = (((L1.p1.x*L1.p2.y - L1.p1.y*L1.p2.x) * (L2.p1.x - L2.p2.x)) - ((L1.p1.x - L1.p2.x) * (L2.p1.x*L2.p2.y - L2.p1.y*L2.p2.x)))
+		/ (((L1.p1.x - L1.p2.x) * (L2.p1.y - L2.p2.y)) - ((L1.p1.y - L1.p2.y) * (L2.p1.x - L2.p2.x)));
+
+	var Py = (((L1.p1.x*L1.p2.y - L1.p1.y*L1.p2.x) * (L2.p1.y - L2.p2.y)) - ((L1.p1.y - L1.p2.y) * (L2.p1.x*L2.p2.y - L2.p1.y*L2.p2.x)))
+		/ (((L1.p1.x - L1.p2.x) * (L2.p1.y - L2.p2.y)) - ((L1.p1.y - L1.p2.y) * (L2.p1.x - L2.p2.x)));
+
+	// round so we are only dealing with integers
+	var retP = { x : Math.round(Px), y : Math.round(Py) };
+
+	// returns a bool based on whether the point lies between the two given points
+	function between(pMax, pMin, pTest) {
+		if(pTest.x == null || pTest.y == null) { return false; }
+
+		// correcting for points being the wrong way round
+		var maxX = (pMin.x > pMax.x) ? pMin.x : pMax.x;
+		var minX = (pMin.x <= pMax.x) ? pMin.x : pMax.x;
+		var maxY = (pMin.y > pMax.y) ? pMin.y : pMax.y;
+		var minY = (pMin.y <= pMax.y) ? pMin.y : pMax.y;
+
+		// check pTest lies between pMax and pMin
+		return minX <= pTest.x && maxX >= pTest.x
+			&& minY <= pTest.y && maxY >= pTest.y;
+	}
+
+	// we are only interested if the lines intersect between the vetices
+	if( between(L1.p1, L1.p2, retP) && between(L2.p1, L2.p2, retP) ) {
+		return retP;
+	} else {
+		return null;
+	}
+}
+
 
 
 //todo request animation frame
