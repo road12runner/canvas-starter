@@ -302,6 +302,10 @@ var card = {
 		// do rotation
 	},
 	hover: function(pos) {
+		
+		if (!this.selected) {
+			return;
+		}
 		// just to highlight corners
 		if (this.action === ACTIONS.NOTHING) {
 			
@@ -351,9 +355,36 @@ var card = {
 			this.mousePos = pos;
 		}
 	},
-	
-	onClick: function(pos) {
+	pinch: function(e){
+		if (!this.touchPinch) {
+			this.touchPinch = e.scale;
+		} else {
+			
+			var delta = 1 - (this.touchPinch - e.scale);
+			var newWidth = card.width * delta;
+			var newHeight = card.height * delta;
+			card.width = newWidth;
+			card.height = newHeight;
+			drawCard();
+			this.touchPinch = e.scale;
+		}
+	},
+	rotate: function(e){
+		if (!this.touchRotate) {
+			this.touchRotate = e.angle;
+		} else {
+			
+			var delta = this.touchRotate - e.angle;
+			card.rotation += delta;
+			this.touchRotate = e.angle;
+			drawCard();
+			$('#hammer-container').append( 'angle: ' + delta).append('<br>');
+			
+		}
+	},
 
+	onClick: function(pos) {
+		
 		
 		if (this.hoverCorners.leftTop
 			|| this.hoverCorners.leftBottom
@@ -383,6 +414,14 @@ function isInside(pos, area) {
 	return (pos.x >= area.x - 5 && pos.x <= area.x + 5)
 	&& (pos.y >= area.y - 5 && pos.y <= area.y + 5)
 }
+
+
+var clipart = {
+	imageLoaded : false
+};
+
+
+var cliparts = []
 
 
 card.setImage('https://uat.serversidegraphics.com/PCS/API/v1/designers/689b8821-897b-4c92-9d47-2d9bc76d8e35/Images/17236.Jpg');
@@ -445,7 +484,7 @@ function  startEvent(e) {
 	// 	console.log('clickAngle', clickAngle);
 	// }
 
-	//todo if inside of card
+
 
 	//console.log(hitLeftTopCorner);
 }
@@ -692,8 +731,17 @@ function drawCard() {
 	//ctx.drawImage(cardImage, card.x, card.y, card.width, card.height);
 	
 	card.render(ctx);
+	
+	
 
 	ctx.drawImage(templateImage, template.x, template.y, template.width, template.height);
+	
+	
+	cliparts.forEach( function(clipart){
+		clipart.render(ctx);
+	});
+
+
 	//roundRect(ctx, template.x - 1 , template.y - 1  , template.width + 1 , template.height + 1, 6);
 	//draw circle
 	// ctx.beginPath();
@@ -1180,6 +1228,394 @@ function getIntersection (L1, L2) {
 }
 
 
+//multi-touch
+
+
+var mc = new Hammer.Manager(document.getElementById('ssg-canvas'));
+//mc.get('pinch').set({ enable: true });
+//mc.get('rotate').set({ enable: true });
+// create a pinch and rotate recognizer
+// these require 2 pointers
+var pinch = new Hammer.Pinch();
+var rotate = new Hammer.Rotate();
+
+// we want to detect both the same time
+pinch.recognizeWith(rotate);
+
+// add to the Manager
+mc.add([pinch, rotate]);
+
+
+mc.on("pinch rotate", function(ev) {
+	//ctx.font = "12px Arial";
+	//ctx.fillText("pinch rotate",10,10);
+	if (ev.type === 'pinch') {
+		card.pinch(ev);
+		
+		
+	}
+	if (ev.type === 'rotate') {
+		card.rotate(ev);
+		
+	}
+	//$('#hammer-container').append( JSON.stringify(ev)).append('<br>');
+	
+});
+
+mc.on( "pinchend", function( e ) {
+	//$('#hammer-container').append('pinched', e.scale)
+} );
+
+// ctx.font = "12px Arial";
+// ctx.fillText("pinch rotate",10,10);
+
 
 //todo request animation frame
 // todo multi gestures
+function Clipart(src, opts) {
+	var image = new Image();
+	var imageLoaded = false;
+	var borderColor = 'rgb(49, 183, 219)';
+	var coverage = {
+		x: 10,
+		y: 10,
+		width: 180,
+		height: 100,
+	}
+	var x, y, width, height, rotation;
+	
+	var action = ACTIONS.NOTHING;
+	var origHeight = 50;
+	var origWidth = 50;
+	var hoverCorners = {
+		leftTop: false,
+			rightTop: false,
+			leftBottom: false,
+			rightBottom: false,
+			rotatePoint: false
+	};
+	
+	function init(src) {
+		image.src = src;
+		image.onload = function() {
+			imageLoaded = true;
+			x = template.x + coverage.x;
+			y = template.y + coverage.y;
+			width = 50;
+			height = 50;
+			rotation = 0;
+			drawCard();
+		}
+	}
+	
+	
+	
+	
+	function getOriginPoint() {
+		return {
+			x: x + width /2,
+			y: y + height /2
+		}
+	}
+	function getLeftTopCorner() {
+		if (rotation === 0) {
+			return {
+				x: x,
+				y: y
+			}
+		} else {
+			
+			var pointOffset = {
+				x: x - getOriginPoint().x,
+				y: y - getOriginPoint().y
+			};
+			//
+			// //console.log(pointOffset);
+			var radians = rotation * Math.PI / 180;
+			var rotatePoint= {
+				x: (pointOffset.x) * Math.cos(radians) -  (pointOffset.y) * Math.sin(radians),
+				y: (pointOffset.x ) * Math.sin(radians) +  (pointOffset.y) * Math.cos(radians),
+				
+			};
+			
+			return {
+				x: rotatePoint.x + getOriginPoint().x,
+				y: rotatePoint.y + getOriginPoint().y
+			};
+		}
+	}
+	function getRightTopCorner() {
+		if (rotation === 0) {
+			return {
+				x: x + width,
+				y: y
+			}
+		} else {
+			var pointOffset = {
+				x: x + width - getOriginPoint().x,
+				y: y - getOriginPoint().y
+			};
+			//
+			// //console.log(pointOffset);
+			var radians = rotation * Math.PI / 180;
+			var rotatePoint= {
+				x: (pointOffset.x) * Math.cos(radians) -  (pointOffset.y) * Math.sin(radians),
+				y: (pointOffset.x ) * Math.sin(radians) +  (pointOffset.y) * Math.cos(radians)
+				
+			};
+			
+			return {
+				x: rotatePoint.x + getOriginPoint().x,
+				y: rotatePoint.y + getOriginPoint().y
+			};
+		}
+	}
+	function getLeftBottomCorner() {
+		if (rotation === 0) {
+			return {
+				x: x,
+				y: y + height
+			}
+		} else {
+			var pointOffset = {
+				x: x - getOriginPoint().x,
+				y: y + height - getOriginPoint().y
+			};
+			//
+			// //console.log(pointOffset);
+			var radians = rotation * Math.PI / 180;
+			var rotatePoint= {
+				x: (pointOffset.x) * Math.cos(radians) -  (pointOffset.y) * Math.sin(radians),
+				y: (pointOffset.x ) * Math.sin(radians) +  (pointOffset.y) * Math.cos(radians)
+				
+			};
+			
+			return {
+				x: rotatePoint.x + getOriginPoint().x,
+				y: rotatePoint.y + getOriginPoint().y
+			};
+		}
+	}
+	function getRightBottomCorner() {
+		if (rotation === 0) {
+			return {
+				x: x + width,
+				y: y + height
+			}
+		} else {
+			var pointOffset = {
+				x: x + width - getOriginPoint().x,
+				y: y + height - getOriginPoint().y
+			};
+			//
+			// //console.log(pointOffset);
+			var radians = rotation * Math.PI / 180;
+			var rotatePoint= {
+				x: (pointOffset.x) * Math.cos(radians) -  (pointOffset.y) * Math.sin(radians),
+				y: (pointOffset.x ) * Math.sin(radians) +  (pointOffset.y) * Math.cos(radians)
+				
+			};
+			
+			return {
+				x: rotatePoint.x + getOriginPoint().x,
+				y: rotatePoint.y + getOriginPoint().y
+			};
+		}
+	}
+	
+	function getRotationPoint() {
+		
+		if (rotation === 0) {
+			return {
+				x: x + width/2,
+				y: y - 30
+			}
+		} else {
+			var pointOffset = {
+				x: x + width /2 - getOriginPoint().x,
+				y: y  - 30 - getOriginPoint().y
+			};
+			//
+			// //console.log(pointOffset);
+			var radians = rotation * Math.PI / 180;
+			var rotatePoint= {
+				x: (pointOffset.x) * Math.cos(radians) -  (pointOffset.y) * Math.sin(radians),
+				y: (pointOffset.x ) * Math.sin(radians) +  (pointOffset.y) * Math.cos(radians)
+				
+			};
+			
+			return {
+				x: rotatePoint.x + getOriginPoint().x,
+				y: rotatePoint.y + getOriginPoint().y
+			};
+		}
+		
+	}
+	function render(ctx) {
+		if (!imageLoaded) {
+			return;
+		}
+		
+		var originX = x + width/2;
+		var originY = y + height /2;
+		ctx.save();
+		ctx.translate(originX, originY);
+		if (rotation !== 0) {
+			ctx.rotate( rotation * Math.PI/180);
+		}
+		ctx.drawImage(image, - width / 2,- height / 2, width, height);
+		
+		if (selected) {
+			// draw border
+			ctx.strokeStyle = borderColor;
+			roundRect(ctx, - width / 2,- height / 2, width, height, 2);
+			
+			// draw left top corner
+			
+			ctx.beginPath();
+			ctx.arc( - width / 2,- height / 2, 5, 0 , 2 * Math.PI);
+			ctx.fillStyle = hoverCorners.leftTop ? borderColor : 'white';
+			ctx.fill();
+			ctx.stroke();
+			
+			// draw right top corner
+			ctx.beginPath();
+			ctx.arc(  width / 2,- height / 2, 5, 0 , 2 * Math.PI);
+			ctx.fillStyle = hoverCorners.rightTop? borderColor : 'white';
+			ctx.fill();
+			ctx.stroke();
+			
+			
+			//draw left bottom corner
+			ctx.beginPath();
+			ctx.fillStyle = hoverCorners.leftBottom? borderColor : 'white';
+			ctx.arc(  -width / 2, height / 2, 5, 0 , 2 * Math.PI);
+			ctx.fill();
+			ctx.stroke();
+			
+			
+			//draw right bottom corner
+			ctx.beginPath();
+			ctx.arc(  width / 2, height / 2, 5, 0 , 2 * Math.PI);
+			ctx.fillStyle = hoverCorners.rightBottom? borderColor : 'white';
+			ctx.fill();
+			ctx.stroke();
+			
+			//draw rotation point
+			ctx.beginPath();
+			ctx.moveTo(0 , -height /2 );
+			ctx.lineTo(0 , -height / 2 - 30);
+			ctx.stroke();
+			
+			ctx.beginPath();
+			ctx.arc(  0 , -height / 2 - 30, 5, 0 , 2*Math.PI);
+			ctx.fillStyle = hoverCorners.rotatePoint? borderColor : 'white';
+			ctx.fill();
+			ctx.stroke();
+		}
+		
+		ctx.restore();
+		ctx.save();
+		
+		
+		roundRect(ctx, template.x, template.y, template.width, template.height);
+		ctx.clip();
+		
+		
+		ctx.translate(originX, originY);
+		
+		if (rotation !== 0) {
+			ctx.rotate( rotation * Math.PI/180);
+		}
+		
+		ctx.drawImage(img, - width / 2,- height / 2, width, height);
+		
+		ctx.restore();
+		
+		// console.log(ctx.isPointInPath(template.x, template.y));
+		// console.log(ctx.isPointInPath(template.x + template.width, template.y));
+		// console.log(ctx.isPointInPath(template.x, template.y + template.height));
+		// console.log(ctx.isPointInPath(template.x + template.width, template.y + template.height));
+		
+		
+		// var cardRotatePoint = card.getRotationPoint();
+		// ctx.translate(cardRotatePoint.x, cardRotatePoint.y);
+		// ctx.rotation(Math.PI/4);
+		//
+		// ctx.beginPath();
+		// ctx.arc( 0 , 0, 5, 0 , 2*Math.PI);
+		// ctx.stroke();
+		//
+		// //ctx.drawImage(cardImage, -card.width/2,-card.height/2, card.width, card.height);
+		// roundRect(ctx, - card.width / 2, - card.height / 2, card.width, card.height, 2);
+		
+	}
+	function  hover(pos) {
+		
+		if (!selected) {
+			return;
+		}
+		// just to highlight corners
+		if (action === ACTIONS.NOTHING) {
+			
+			hoverCorners.leftTop = isInside(pos, getLeftTopCorner());
+			hoverCorners.rightTop = isInside(pos, getRightTopCorner());
+			hoverCorners.leftBottom = isInside(pos, getLeftBottomCorner());
+			hoverCorners.rightBottom = isInside(pos, getRightBottomCorner());
+			hoverCorners.rotatePoint = isInside(pos, getRotationPoint());
+		}else if (action === ACTIONS.SCALING) {
+			
+			var centerPoint = getOriginPoint();
+			var dx1 = Math.abs(centerPoint.x - mousePos.x);
+			var dy1 = Math.abs(centerPoint.y - mousePos.y);
+			
+			var dx2 = Math.abs(centerPoint.x - pos.x);
+			var dy2 = Math.abs(centerPoint.y - pos.y);
+			
+			
+			
+			var deltaX =  dx1 - dx2;
+			var deltaY = dy1 - dy1;
+			
+			card.x +=  deltaX;
+			card.y +=  deltaY;
+			
+			var ratio = width / height;
+			card.width -=  deltaX *2;
+			card.height -= deltaX * 2 / ratio;
+			
+			mousePos = pos;
+			
+		} else if (action === ACTIONS.ROTATION) {
+			var oldAngle = getMyAngle(mousePos, getOriginPoint());
+			var angle = getMyAngle(pos, getOriginPoint());
+			rotation += angle - oldAngle;
+			
+			mousePos = pos;
+			
+		} else if(action === ACTIONS.MOVING) {
+			
+			var deltaX =  pos.x - mousePos.x;
+			var deltaY = pos.y - mousePos.y;
+			
+			card.x += deltaX;
+			card.y += deltaY;
+			
+			mousePos = pos;
+		}
+	}
+	
+	
+	init(src);
+	
+	return {
+		render: render
+	}
+}
+
+$('.emoij').click(function(e){
+	var clipart = new Clipart(e.target.src);
+	cliparts.push(clipart);
+	card.selected = false;
+	
+});
