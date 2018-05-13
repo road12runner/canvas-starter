@@ -21,6 +21,8 @@ var middlePoint = {
 template.x = middlePoint.x - template.width /2;
 template.y = middlePoint.y - template.height /2;
 
+window.requestAnimationFrame(drawCard);
+
 var ACTIONS = {
 	NOTHING: 'nothing',
 	ROTATION: 'rotation',
@@ -291,6 +293,7 @@ var card = {
 	setImage: function(url) {
 		var that = this;
 		that.img = new Image();
+		that.img.crossOrigin = 'Anonymous';
 		that.img.src = url;
 		that.img.onload = function() {
 			that.imageLoaded = true;
@@ -365,7 +368,7 @@ var card = {
 			var newHeight = card.height * delta;
 			card.width = newWidth;
 			card.height = newHeight;
-			drawCard();
+			//drawCard();
 			this.touchPinch = e.scale;
 		}
 	},
@@ -377,7 +380,7 @@ var card = {
 			var delta = this.touchRotate - e.angle;
 			card.rotation += delta;
 			this.touchRotate = e.angle;
-			drawCard();
+			//drawCard();
 			$('#hammer-container').append( 'angle: ' + delta).append('<br>');
 			
 		}
@@ -416,12 +419,10 @@ function isInside(pos, area) {
 }
 
 
-var clipart = {
-	imageLoaded : false
-};
 
 
-var cliparts = []
+
+var cliparts = [];
 
 
 card.setImage('https://uat.serversidegraphics.com/PCS/API/v1/designers/689b8821-897b-4c92-9d47-2d9bc76d8e35/Images/17236.Jpg');
@@ -437,13 +438,14 @@ card.setImage('https://uat.serversidegraphics.com/PCS/API/v1/designers/689b8821-
 // };
 
 var templateImage = new Image();
+templateImage.crossOrigin = 'Anonymous';
 templateImage.src = 'https://uat.serversidegraphics.com/PCS/API/v1/designers/689b8821-897b-4c92-9d47-2d9bc76d8e35/Templates/11993.png';
 // templateImage.onload = function () {
 // 	ctx.drawImage(this, template.x, template.y, template.width, template.height);
 // };
 
 
-setTimeout( drawCard, 2000);
+//setTimeout( drawCard, 2000);
 
 
 // if (Modernizr.touch) {
@@ -461,14 +463,45 @@ var isMoving = false;
 var isScaling = false;
 
 var moveCoords = null;
-var clickAngle = 0;
+
 
 function  startEvent(e) {
 
 	isMoving = true;
 	moveCoords = getPosition(e);
-
-	card.onClick(moveCoords);
+	
+	var selectedObject = null;
+	// check if pos in selected object
+	var selectedObjects = cliparts.filter(function(clipart){
+		return clipart.isSelected() && clipart.hitTest(moveCoords);
+	});
+	
+	if (selectedObjects.length === 1) {
+		selectedObject = selectedObjects[0];
+	} else {
+		
+		var innerObjectSelected = false;
+		// look for object at pos
+		for(var i = cliparts.length -1; i >= 0; i--) {
+			if (!innerObjectSelected && cliparts[i].hitTest(moveCoords)) {
+				selectedObject = cliparts[i];
+				cliparts[i].setSelected(true);
+			} else {
+				cliparts[i].setSelected(false);
+			}
+		}
+		
+	}
+	
+	if (selectedObject) {
+		card.selected = false;
+		selectedObject.onClick(moveCoords)
+	} else {
+		card.selected = true;
+		card.onClick(moveCoords);
+	}
+	
+	//drawCard();
 	
 	// var cardLeftTopCorner = card.getLeftTopCorner();
 	// var hitLeftTopCorner = (moveCoords.x >= cardLeftTopCorner.x - 5 && moveCoords.x <= cardLeftTopCorner.x + 5) && (moveCoords.y >= cardLeftTopCorner.y - 5 && moveCoords.y <= cardLeftTopCorner.y + 5);
@@ -496,7 +529,11 @@ function  keepEvent(e) {
 	
 	card.hover(newCoords);
 	
-	drawCard();
+	cliparts.forEach( function(clipart){
+		clipart.hover(newCoords)
+	});
+	
+	//drawCard();
 	
 	// if (isMoving) {
 	// 	//console.log('keepEvent', getPosition(e));
@@ -559,7 +596,13 @@ function getMyAngle(point, center) {
 }
 
 function  finishEvent(e) {
+	
 	card.onFinish();
+	
+	cliparts.forEach( function(clipart){
+		clipart.onFinish();
+	});
+	
 	isMoving = false;
 	isScaling = false;
 	//console.log('finishEvent',e);
@@ -620,10 +663,17 @@ function drawCard() {
 	//console.log(afterRotate);
 	
 	
-	// if (checkOverlap(template, card)) {
-	// 	ctx.font = "12px Arial";
-	// 	ctx.fillText("Overlap",10,10);
-	// }
+	if (checkOverlap(template, card)) {
+		ctx.font = "12px Arial";
+		ctx.fillText("Overlap",10,10);
+	}
+	
+	cliparts.forEach(function(clipart){
+		if (clipart.testCoverage()) {
+			ctx.font = "12px Arial";
+			ctx.fillText("Overlap",10,10);
+		}
+	});
 	
 	
 	var cardPolygon = [
@@ -758,6 +808,8 @@ function drawCard() {
 	// ctx.beginPath();
 	// ctx.arc(card.x + card.width /2, card.y - 30, 5, 0 , 2*Math.PI);
 	// ctx.stroke();
+	
+	window.requestAnimationFrame(drawCard);
 
 
 }
@@ -1266,19 +1318,19 @@ mc.on( "pinchend", function( e ) {
 	//$('#hammer-container').append('pinched', e.scale)
 } );
 
-// ctx.font = "12px Arial";
-// ctx.fillText("pinch rotate",10,10);
 
 
-//todo request animation frame
-// todo multi gestures
-function Clipart(src, opts) {
+// todo improve multi gestures
+function Clipart(id, src, opts) {
+	var clipartId = id;
+	var selected = false;
 	var image = new Image();
+	image.crossOrigin = 'Anonymous';
 	var imageLoaded = false;
 	var borderColor = 'rgb(49, 183, 219)';
 	var coverage = {
-		x: 10,
-		y: 10,
+		x: template.x + 10,
+		y: template.y + 10,
 		width: 180,
 		height: 100,
 	}
@@ -1299,17 +1351,14 @@ function Clipart(src, opts) {
 		image.src = src;
 		image.onload = function() {
 			imageLoaded = true;
-			x = template.x + coverage.x;
-			y = template.y + coverage.y;
+			x = coverage.x;
+			y = coverage.y;
 			width = 50;
 			height = 50;
 			rotation = 0;
-			drawCard();
+			//drawCard();
 		}
 	}
-	
-	
-	
 	
 	function getOriginPoint() {
 		return {
@@ -1512,43 +1561,14 @@ function Clipart(src, opts) {
 			ctx.fillStyle = hoverCorners.rotatePoint? borderColor : 'white';
 			ctx.fill();
 			ctx.stroke();
+			
+			ctx.restore();
+			ctx.save();
+			roundRect(ctx, coverage.x, coverage.y, coverage.width, coverage.height);
+			
 		}
 		
 		ctx.restore();
-		ctx.save();
-		
-		
-		roundRect(ctx, template.x, template.y, template.width, template.height);
-		ctx.clip();
-		
-		
-		ctx.translate(originX, originY);
-		
-		if (rotation !== 0) {
-			ctx.rotate( rotation * Math.PI/180);
-		}
-		
-		ctx.drawImage(img, - width / 2,- height / 2, width, height);
-		
-		ctx.restore();
-		
-		// console.log(ctx.isPointInPath(template.x, template.y));
-		// console.log(ctx.isPointInPath(template.x + template.width, template.y));
-		// console.log(ctx.isPointInPath(template.x, template.y + template.height));
-		// console.log(ctx.isPointInPath(template.x + template.width, template.y + template.height));
-		
-		
-		// var cardRotatePoint = card.getRotationPoint();
-		// ctx.translate(cardRotatePoint.x, cardRotatePoint.y);
-		// ctx.rotation(Math.PI/4);
-		//
-		// ctx.beginPath();
-		// ctx.arc( 0 , 0, 5, 0 , 2*Math.PI);
-		// ctx.stroke();
-		//
-		// //ctx.drawImage(cardImage, -card.width/2,-card.height/2, card.width, card.height);
-		// roundRect(ctx, - card.width / 2, - card.height / 2, card.width, card.height, 2);
-		
 	}
 	function  hover(pos) {
 		
@@ -1577,12 +1597,12 @@ function Clipart(src, opts) {
 			var deltaX =  dx1 - dx2;
 			var deltaY = dy1 - dy1;
 			
-			card.x +=  deltaX;
-			card.y +=  deltaY;
+			x +=  deltaX;
+			y +=  deltaY;
 			
 			var ratio = width / height;
-			card.width -=  deltaX *2;
-			card.height -= deltaX * 2 / ratio;
+			width -=  deltaX *2;
+			height -= deltaX * 2 / ratio;
 			
 			mousePos = pos;
 			
@@ -1598,24 +1618,209 @@ function Clipart(src, opts) {
 			var deltaX =  pos.x - mousePos.x;
 			var deltaY = pos.y - mousePos.y;
 			
-			card.x += deltaX;
-			card.y += deltaY;
+			x += deltaX;
+			y += deltaY;
 			
 			mousePos = pos;
+			
 		}
+	}
+	
+	function setSelected(val) {
+		selected = val;
+	}
+	
+	function hitTest(pos) {
+		console.log(hoverCorners);
+		
+		return (pos.x >= x && pos.x <= x + width
+			&& pos.y >= y && pos.y <= y + height)
+			|| (hoverCorners.leftTop
+				|| hoverCorners.leftBottom
+				|| hoverCorners.rightTop
+				|| hoverCorners.rightBottom
+				|| hoverCorners.rotatePoint
+			);
+		
+	}
+	
+	function getId() {
+		return clipartId;
+	}
+	
+	function onClick(pos) {
+		
+		if (!selected) {
+			return;
+		}
+		
+		if (hoverCorners.leftTop
+			|| hoverCorners.leftBottom
+			|| hoverCorners.rightTop
+			|| hoverCorners.rightBottom) {
+			action = ACTIONS.SCALING;
+			mousePos = pos;
+		} else if (hoverCorners.rotatePoint) {
+			action = ACTIONS.ROTATION;
+			mousePos = pos;
+		} else if (pos.x >= x && pos.x <= x + width
+			&& pos.y >= y && pos.y <= y + height) {
+			action = ACTIONS.MOVING;
+			mousePos = pos;
+		} else {
+			action = ACTIONS.NOTHING;
+		}
+		
+		console.log(action);
+	}
+	
+	function onFinish() {
+		action = ACTIONS.NOTHING;
+		if (selected) {
+			outOfCanvas();
+		}
+		
+	}
+	
+	function isSelected() {
+		return selected;
+	}
+	
+	function testCoverage() {
+		//console.log('obj', this);
+		//
+		var vertices =  [getLeftBottomCorner(),
+			getRightTopCorner(),
+			getLeftTopCorner(),
+			getRightBottomCorner()];
+		
+		var result = !allInside(vertices, coverage);
+		//console.log('allInside', result);
+		
+		return result;
+		
+	}
+	
+	
+	function outOfCanvas() {
+		var vertices =  [getLeftBottomCorner(),
+			getRightTopCorner(),
+			getLeftTopCorner(),
+			getRightBottomCorner()];
+		
+		var xArrays = vertices.map( function(v){
+			return v.x;
+		});
+		
+		var yArrays = vertices.map( function(v){
+			return v.y;
+		});
+		
+		//console.log(xArrays, yArrays);
+		
+		var minX = Math.min.apply(null, xArrays);
+		var minY = Math.min.apply(null, yArrays);
+		var maxX = Math.max.apply(null, xArrays);
+		var maxY = Math.max.apply(null, yArrays);
+		
+		
+		if (minX < 0 || maxX > ctx.canvas.width || minY < 0 || maxY > ctx.canvas.height) {
+			removeClipart(clipartId);
+		}
+		
 	}
 	
 	
 	init(src);
 	
 	return {
-		render: render
+		render: render,
+		setSelected: setSelected,
+		hover: hover,
+		onClick: onClick,
+		onFinish: onFinish,
+		hitTest: hitTest,
+		isSelected: isSelected,
+		testCoverage: testCoverage,
+		outOfCanvas: outOfCanvas,
+		getId: getId
 	}
 }
 
 $('.emoij').click(function(e){
-	var clipart = new Clipart(e.target.src);
+	// todo add unique id
+	var clipart = new Clipart(cliparts.length + 1, e.target.src);
+	clipart.setSelected(true);
+	
+	
+	cliparts.forEach(function(clipart){
+		clipart.setSelected(false);
+	});
+	
 	cliparts.push(clipart);
 	card.selected = false;
 	
 });
+
+
+$('#btn-preview').click(function(){
+	
+	card.selected = false;
+	cliparts.forEach(function(clipart){
+		clipart.setSelected(false);
+	});
+	
+	setTimeout(function(){
+		crop(canvas, template.x, template.y, template.width, template.height, function(datUrl) {
+			$('#preview').css('background-image', 'url(' + datUrl + ')');
+		});
+	}, 500);
+	
+	
+	
+	//document.body.style.backgroundImage = 'url(' + dataURL + ')';
+
+});
+
+function crop (canvas, offsetX, offsetY, width, height, callback) {
+	// create an in-memory canvas
+	var buffer = document.createElement('canvas');
+	var b_ctx = buffer.getContext('2d');
+	// set its width/height to the required ones
+	buffer.width = width;
+	buffer.height = height;
+	// draw the main canvas on our buffer one
+	// drawImage(source, source_X, source_Y, source_Width, source_Height,
+	//  dest_X, dest_Y, dest_Width, dest_Height)
+	b_ctx.drawImage(canvas, offsetX, offsetY, width, height,
+		0, 0, buffer.width, buffer.height);
+	// now call the callback with the dataURL of our buffer canvas
+	callback(buffer.toDataURL());
+}
+
+
+function removeClipart(clipartId) {
+	cliparts = cliparts.filter(function(item) {
+		return item.getId() !== clipartId;
+	})
+}
+
+//todo intergrate with old app
+
+
+// pros and cons
+// 1. canvas supported by all browsers
+// 2. style of canvas elements cannot be overwrite outside
+// 3. easy and faster development
+// 4. has the same power as flash (free to draw anything there)
+// 5. no additional third library is used
+// 6. fully compatible with current app
+
+//estimations
+// improve code - 3days
+// improve gestures - 2days
+// add text - 2days
+// add doodle - 3 days
+// add special effects - 2days
+// total - 12 days ±2days buffer
+// animation if required - ???
